@@ -255,10 +255,28 @@ export class StarsPaymentService {
     return new Date(found.expiresAt).getTime() > Date.now();
   }
 
+  // Алгоритмическая генерация контрольной суммы промокода
+  private generatePromoChecksum(kind: string, nonce: string): string {
+    const salt = 'DAYFLOW_SECURE_SALT_2026_X99';
+    const payload = `${salt}:${kind}:${nonce}`;
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < payload.length; i++) {
+      hash ^= payload.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    return (Math.abs(hash) % 10000).toString().padStart(4, '0');
+  }
+
   // Создать промокод для передачи другу
   public createPromoCode(durationDays: number = 30): PromoCode {
-    const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const code = `VIP-${durationDays >= 9999 ? 'FOREVER' : durationDays + 'D'}-${randomHex}`;
+    const kind = durationDays >= 9999 ? 'VIP' : '30D';
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let nonce = '';
+    for (let i = 0; i < 4; i++) {
+      nonce += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const check = this.generatePromoChecksum(kind, nonce);
+    const code = `FLOW-${kind}-${nonce}-${check}`;
 
     const raw = localStorage.getItem(STORAGE_KEYS.ADMIN_PROMOCODES);
     const codes: PromoCode[] = raw ? JSON.parse(raw) : [];
@@ -277,27 +295,59 @@ export class StarsPaymentService {
   // Активировать промокод
   public activatePromoCode(codeStr: string): { success: boolean; message: string } {
     const clean = codeStr.trim().toUpperCase();
-    
-    // Специальный мастер-промокод разработчика
-    if (clean === 'DEV777' || clean === 'DAYFLOW_ADMIN' || clean === 'YHUMIRA_VIP') {
-      this.grantProToSelf(9999);
-      return { success: true, message: '🎉 Активирован вечный статус Разработчика (SuperAdmin VIP)!' };
+    if (!clean) {
+      return { success: false, message: 'Введите промокод' };
     }
 
+    // Проверка истории использованных промокодов на этом устройстве
+    const usedKey = 'dayflow_redeemed_promos_history_v1';
+    const rawUsed = localStorage.getItem(usedKey);
+    const usedList: string[] = rawUsed ? JSON.parse(rawUsed) : [];
+
+    if (usedList.includes(clean)) {
+      return { success: false, message: 'Этот промокод уже был активирован на данном устройстве' };
+    }
+
+    // 1. Проверка алгоритмического промокода FLOW-{KIND}-{NONCE}-{CHECK}
+    const match = clean.match(/^FLOW-(VIP|30D)-([A-Z0-9]{4})-(\d{4})$/);
+    if (match) {
+      const [, kind, nonce, check] = match;
+      const expectedCheck = this.generatePromoChecksum(kind, nonce);
+
+      if (check === expectedCheck) {
+        const days = kind === 'VIP' ? 9999 : 30;
+        usedList.push(clean);
+        localStorage.setItem(usedKey, JSON.stringify(usedList));
+
+        this.grantProToSelf(days);
+        return {
+          success: true,
+          message: `🎉 Промокод активирован! Вам предоставлен VIP-доступ ${days >= 9999 ? 'НАВСЕГДА' : 'на 30 дней'}.`,
+        };
+      }
+    }
+
+    // 2. Проверка локальных промокодов из памяти админа (если активируется на том же устройстве)
     const raw = localStorage.getItem(STORAGE_KEYS.ADMIN_PROMOCODES);
     const codes: PromoCode[] = raw ? JSON.parse(raw) : [];
-
     const promo = codes.find(c => c.code === clean && !c.isUsed);
-    if (!promo) {
-      return { success: false, message: 'Неверный или уже использованный промокод' };
+
+    if (promo) {
+      promo.isUsed = true;
+      promo.usedBy = String(tg.getUser()?.id || 'client');
+      localStorage.setItem(STORAGE_KEYS.ADMIN_PROMOCODES, JSON.stringify(codes));
+
+      usedList.push(clean);
+      localStorage.setItem(usedKey, JSON.stringify(usedList));
+
+      this.grantProToSelf(promo.durationDays);
+      return {
+        success: true,
+        message: `🎉 Успешно активирован VIP на ${promo.durationDays >= 9999 ? 'весь срок' : promo.durationDays + ' дн.'}!`,
+      };
     }
 
-    promo.isUsed = true;
-    promo.usedBy = String(tg.getUser()?.id || 'client');
-    localStorage.setItem(STORAGE_KEYS.ADMIN_PROMOCODES, JSON.stringify(codes));
-
-    this.grantProToSelf(promo.durationDays);
-    return { success: true, message: `🎉 Успешно активирован VIP на ${promo.durationDays >= 9999 ? 'весь срок' : promo.durationDays + ' дн.'}!` };
+    return { success: false, message: 'Неверный или недействительный промокод' };
   }
 }
 

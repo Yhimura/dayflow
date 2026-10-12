@@ -73,8 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
             <h1 
               onClick={handleTitleTap}
-              style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0, cursor: 'pointer' }}
-              title="Нажмите 5 раз для входа в панель разработчика"
+              style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0, cursor: 'pointer', userSelect: 'none' }}
             >
               Привет, {user.first_name || 'Студент'} 👋
             </h1>
@@ -84,7 +83,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={() => {
                   tg.haptic('selection');
-                  onOpenAdmin();
+                  if (localStorage.getItem('dayflow_admin_auth_session') === 'true') {
+                    onOpenAdmin();
+                  } else {
+                    tg.showAlert('👑 У вас активен статус Voice Brain VIP / PRO!');
+                  }
                 }}
                 style={{
                   background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
@@ -100,7 +103,6 @@ export const Header: React.FC<HeaderProps> = ({
                   gap: 3,
                   boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)',
                 }}
-                title="Нажмите для входа в панель управления VIP"
               >
                 <span>PRO</span>
                 <Star size={10} fill="#111827" />

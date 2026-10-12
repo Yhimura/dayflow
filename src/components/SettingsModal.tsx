@@ -5,13 +5,16 @@ import {
 } from 'lucide-react';
 import { NotificationSettings } from '../types';
 import { notificationService } from '../services/notificationService';
+import { starsPayment } from '../services/starsPayment';
 import { tg } from '../services/telegram';
+import confetti from 'canvas-confetti';
 
 interface SettingsModalProps {
   settings: NotificationSettings;
   onSaveSettings: (settings: NotificationSettings) => void;
   onClearAll: () => void;
   onOpenAdmin: () => void;
+  onRefreshSubscription?: () => void;
   onClose: () => void;
 }
 
@@ -20,11 +23,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveSettings,
   onClearAll,
   onOpenAdmin,
+  onRefreshSubscription,
   onClose,
 }) => {
   const [settings, setSettings] = useState<NotificationSettings>(initialSettings);
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
+
+  // Состояние промокода
+  const [promoInput, setPromoInput] = useState('');
+  const [promoMessage, setPromoMessage] = useState<{ text: string; success: boolean } | null>(null);
+
+  // Сессия администратора (скрыта от обычных пользователей)
+  const [isAdminSession, setIsAdminSession] = useState<boolean>(() => {
+    return localStorage.getItem('dayflow_admin_auth_session') === 'true';
+  });
+
+  // Секретный триггер входа для создателя (5 тапов по версии)
+  const [versionTaps, setVersionTaps] = useState(0);
+  const handleVersionTap = () => {
+    const next = versionTaps + 1;
+    setVersionTaps(next);
+    tg.haptic('selection');
+    if (next >= 5) {
+      setVersionTaps(0);
+      tg.haptic('notification', 'success');
+      onOpenAdmin();
+      onClose();
+    }
+  };
+
+  const handleActivatePromo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoInput.trim()) return;
+
+    tg.haptic('impact', 'medium');
+    const res = starsPayment.activatePromoCode(promoInput);
+    setPromoMessage({ text: res.message, success: res.success });
+
+    if (res.success) {
+      confetti({ particleCount: 50, spread: 60 });
+      onRefreshSubscription?.();
+      setPromoInput('');
+    }
+  };
 
   const handleToggleNotify = () => {
     tg.haptic('selection');
@@ -285,29 +327,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
-          {/* Панель разработчика (Dev VIP) */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
-            <button
-              onClick={() => {
-                tg.haptic('selection');
-                onOpenAdmin();
-                onClose();
-              }}
-              className="btn-ghost"
-              style={{
-                width: '100%', justifyContent: 'center',
-                borderColor: 'rgba(251, 191, 36, 0.4)',
-                background: 'rgba(251, 191, 36, 0.08)',
-                color: '#fbbf24',
-                fontWeight: 700,
-                padding: '10px 14px',
-                borderRadius: 12,
+          {/* Секция: Активация промокода */}
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Key size={14} color="#fbbf24" />
+              <span>Промокод на VIP доступ</span>
+            </div>
+
+            <form onSubmit={handleActivatePromo} style={{ display: 'flex', gap: 8 }}>
+              <input 
+                type="text" 
+                className="input-glass"
+                placeholder="FLOW-VIP-XXXX-..."
+                value={promoInput}
+                onChange={e => setPromoInput(e.target.value)}
+                style={{ fontSize: 13, padding: '8px 12px', flex: 1 }}
+              />
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                style={{ padding: '8px 14px', fontSize: 12, flexShrink: 0 }}
+              >
+                Применить
+              </button>
+            </form>
+
+            {promoMessage && (
+              <div style={{ fontSize: 12, color: promoMessage.success ? 'var(--accent-green)' : 'var(--accent-rose)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {promoMessage.success ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                <span>{promoMessage.text}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Панель разработчика (Отображается ТОЛЬКО если активна сессия админа) */}
+          {isAdminSession && (
+            <div 
+              className="glass-card" 
+              style={{ 
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                borderColor: 'rgba(251, 191, 36, 0.4)', background: 'rgba(251, 191, 36, 0.08)',
+                padding: '10px 14px' 
               }}
             >
-              <Crown size={16} />
-              <span>👑 Панель разработчика (Dev VIP)</span>
-            </button>
-          </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Crown size={16} color="#fbbf24" />
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>Админ-панель</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    tg.haptic('selection');
+                    onOpenAdmin();
+                    onClose();
+                  }}
+                  className="btn-ghost"
+                  style={{ fontSize: 11, padding: '5px 10px', borderColor: '#fbbf24', color: '#fbbf24' }}
+                >
+                  Открыть
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('dayflow_admin_auth_session');
+                    setIsAdminSession(false);
+                    tg.haptic('impact', 'light');
+                  }}
+                  className="btn-ghost"
+                  style={{ fontSize: 11, padding: '5px 8px', color: 'var(--text-dim)' }}
+                >
+                  Выйти
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Очистить все данные */}
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
@@ -339,6 +434,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           Сохранить настройки
         </button>
+
+        {/* Скрытый триггер для создателя: 5 тапов по версии открывают защищенную админку */}
+        <div 
+          onClick={handleVersionTap}
+          style={{ 
+            textAlign: 'center', fontSize: 11, color: 'var(--text-dim)', 
+            marginTop: 12, cursor: 'pointer', userSelect: 'none', padding: '4px' 
+          }}
+        >
+          DayFlow v1.2 • Умный органайзер
+        </div>
 
       </div>
     </div>

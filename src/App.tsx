@@ -416,6 +416,7 @@ export const App: React.FC = () => {
           onSaveSettings={handleSaveSettings}
           onClearAll={handleClearAll}
           onOpenAdmin={() => setShowAdminModal(true)}
+          onRefreshSubscription={() => setSubscription(starsPayment.getSubscription())}
           onClose={() => setShowSettings(false)}
         />
       )}
