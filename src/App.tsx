@@ -69,15 +69,16 @@ export const App: React.FC = () => {
     const checkReminders = () => {
       const now = new Date();
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const todayDateStr = now.toDateString();
 
-      // 1. Проверка пар
+      // 1. Проверка пар (с допуском окна в 1 минуту для надежности таймера)
       schedule.forEach(item => {
         const [startH, startM] = item.startTime.split(':').map(Number);
         const itemStartMin = startH * 60 + startM;
         const diff = itemStartMin - currentMinutes;
 
-        if (diff === settings.classRemindMinutes) {
-          const key = `class-${item.id}-${now.toDateString()}`;
+        if (diff <= settings.classRemindMinutes && diff >= settings.classRemindMinutes - 1) {
+          const key = `class-${item.id}-${todayDateStr}`;
           if (!sentRemindersRef.current.has(key)) {
             sentRemindersRef.current.add(key);
             notificationService.sendClassReminder(settings, item);
@@ -92,19 +93,47 @@ export const App: React.FC = () => {
         const taskDueMin = dueH * 60 + dueM;
         const diff = taskDueMin - currentMinutes;
 
-        if (diff === settings.taskRemindMinutes) {
-          const key = `task-${task.id}-${now.toDateString()}`;
+        if (diff <= settings.taskRemindMinutes && diff >= settings.taskRemindMinutes - 1) {
+          const key = `task-${task.id}-${todayDateStr}`;
           if (!sentRemindersRef.current.has(key)) {
             sentRemindersRef.current.add(key);
             notificationService.sendTaskReminder(settings, task);
           }
         }
       });
+
+      // 3. Проверка дней рождения (один раз в день утром)
+      birthdays.forEach(bday => {
+        const [mStr, dStr] = bday.birthDate.split('-').map(Number);
+        const bdayThisYear = new Date(now.getFullYear(), mStr - 1, dStr);
+        const diffDays = Math.ceil((bdayThisYear.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays >= 0 && diffDays <= settings.birthdayRemindDays) {
+          const key = `bday-${bday.id}-${todayDateStr}`;
+          if (!sentRemindersRef.current.has(key)) {
+            sentRemindersRef.current.add(key);
+            notificationService.sendBirthdayReminder(settings, bday, diffDays);
+          }
+        }
+      });
+
+      // 4. Утренний дайджест
+      if (settings.morningSummaryEnabled && settings.morningSummaryTime) {
+        const [sumH, sumM] = settings.morningSummaryTime.split(':').map(Number);
+        const sumMin = sumH * 60 + sumM;
+        if (currentMinutes === sumMin) {
+          const key = `morning-summary-${todayDateStr}`;
+          if (!sentRemindersRef.current.has(key)) {
+            sentRemindersRef.current.add(key);
+            notificationService.sendMorningDigest(settings, schedule, tasks, birthdays);
+          }
+        }
+      }
     };
 
-    const interval = setInterval(checkReminders, 45000);
+    const interval = setInterval(checkReminders, 30000);
     return () => clearInterval(interval);
-  }, [schedule, tasks, settings]);
+  }, [schedule, tasks, birthdays, settings]);
 
   // Синхронизация данных
   const updateTasks = (newTasks: Task[]) => {
@@ -415,6 +444,7 @@ export const App: React.FC = () => {
           settings={settings}
           onSaveSettings={handleSaveSettings}
           onClearAll={handleClearAll}
+          onBackup={() => notificationService.sendBackupToBot(settings, schedule, tasks, birthdays)}
           onOpenAdmin={() => setShowAdminModal(true)}
           onRefreshSubscription={() => setSubscription(starsPayment.getSubscription())}
           onClose={() => setShowSettings(false)}

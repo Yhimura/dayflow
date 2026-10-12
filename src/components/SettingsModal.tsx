@@ -15,6 +15,7 @@ interface SettingsModalProps {
   onClearAll: () => void;
   onOpenAdmin: () => void;
   onRefreshSubscription?: () => void;
+  onBackup?: () => Promise<{ success: boolean; error?: string }>;
   onClose: () => void;
 }
 
@@ -24,11 +25,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearAll,
   onOpenAdmin,
   onRefreshSubscription,
+  onBackup,
   onClose,
 }) => {
   const [settings, setSettings] = useState<NotificationSettings>(initialSettings);
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
+  const [backupStatus, setBackupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Состояние промокода
   const [promoInput, setPromoInput] = useState('');
@@ -318,6 +321,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </>
               )}
             </button>
+
+            {/* Кнопка резервной копии в бот */}
+            {onBackup && (
+              <button
+                onClick={async () => {
+                  tg.haptic('selection');
+                  setBackupStatus('loading');
+                  try {
+                    const res = await onBackup();
+                    if (res?.success) {
+                      setBackupStatus('success');
+                      tg.haptic('notification', 'success');
+                      setTimeout(() => setBackupStatus('idle'), 3500);
+                    } else {
+                      setBackupStatus('error');
+                      tg.showAlert(res?.error || 'Ошибка создания резервной копии');
+                    }
+                  } catch (e: any) {
+                    setBackupStatus('error');
+                    tg.showAlert(e.message || 'Ошибка');
+                  }
+                }}
+                disabled={backupStatus === 'loading'}
+                className="btn-ghost"
+                style={{
+                  width: '100%', justifyContent: 'center', marginTop: 4,
+                  borderColor: backupStatus === 'success' ? 'var(--accent-green)' : 'var(--border-subtle)',
+                  color: backupStatus === 'success' ? 'var(--accent-green)' : 'var(--text-muted)',
+                  fontSize: 12, padding: '8px 12px'
+                }}
+              >
+                {backupStatus === 'loading' ? (
+                  <span>Сохранение копии...</span>
+                ) : backupStatus === 'success' ? (
+                  <>
+                    <CheckCircle2 size={15} color="var(--accent-green)" />
+                    <span>Резервная копия отправлена в бот! 💾</span>
+                  </>
+                ) : (
+                  <span>💾 Отправить резервную копию в бот</span>
+                )}
+              </button>
+            )}
 
             {testError && (
               <div style={{ fontSize: 12, color: 'var(--accent-rose)', display: 'flex', alignItems: 'center', gap: 6 }}>
