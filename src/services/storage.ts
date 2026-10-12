@@ -3,14 +3,31 @@ import { tg } from './telegram';
 import { DEFAULT_BOT_TOKEN } from './notificationService';
 
 const STORAGE_KEYS = {
-  TASKS: 'smart_planner_tasks',
-  SCHEDULE: 'smart_planner_schedule',
-  BIRTHDAYS: 'smart_planner_birthdays',
-  CHAT: 'smart_planner_chat',
-  SETTINGS: 'smart_planner_settings',
+  TASKS: 'dayflow_tasks_v3',
+  SCHEDULE: 'dayflow_schedule_v3',
+  BIRTHDAYS: 'dayflow_birthdays_v3',
+  CHAT: 'dayflow_chat_v3',
+  SETTINGS: 'dayflow_settings_v3',
+  VERSION: 'dayflow_version_v3_clean',
 };
 
-// Пустые начальные списки по запросу пользователя
+// Принудительная очистка старых данных при первом запуске новой версии
+if (typeof window !== 'undefined') {
+  if (localStorage.getItem(STORAGE_KEYS.VERSION) !== 'clean_v3') {
+    // Удаляем старые демо-данные из первой версии
+    localStorage.removeItem('smart_planner_tasks');
+    localStorage.removeItem('smart_planner_schedule');
+    localStorage.removeItem('smart_planner_birthdays');
+    localStorage.removeItem('smart_planner_chat');
+    localStorage.removeItem(STORAGE_KEYS.TASKS);
+    localStorage.removeItem(STORAGE_KEYS.SCHEDULE);
+    localStorage.removeItem(STORAGE_KEYS.BIRTHDAYS);
+    localStorage.removeItem(STORAGE_KEYS.CHAT);
+    localStorage.setItem(STORAGE_KEYS.VERSION, 'clean_v3');
+  }
+}
+
+// Пустые начальные списки
 const INITIAL_SCHEDULE: ScheduleItem[] = [];
 const INITIAL_TASKS: Task[] = [];
 const INITIAL_BIRTHDAYS: BirthdayEvent[] = [];
@@ -19,12 +36,12 @@ const INITIAL_CHAT: ChatMessage[] = [
   {
     id: 'msg-welcome',
     sender: 'assistant',
-    text: 'Привет! Я твой персональный органайзер DayFlow ⚡️\n\nТвой планер готов к работе с чистого листа:\n• Добавляй пары и созвоны во вкладке «Пары»\n• Фиксируй задачи и дедлайны в «Дела»\n• Сохраняй дни рождения близких в «Дни рожд.»\n\n💬 Или просто напиши мне сюда в чат человеческим языком: например, «добавь пару по физике в 14:00» или «напомни сделать отчет».\n\n⚙️ В правом верхнем углу нажми на шестеренку, чтобы настроить отправку уведомлений через бота!',
+    text: 'Привет! Я твой персональный органайзер DayFlow ⚡️\n\nТвой планер чист и готов к работе:\n• Добавляй пары во вкладке «Пары»\n• Записывай задачи в «Дела»\n• Сохраняй дни рождения в «Дни рожд.»\n\n💬 Или просто напиши мне сюда в чат человеческим языком: например, «добавь пару по физике в 14:00» или «напомни сделать отчет».\n\n⚙️ В правом верхнем углу нажми на шестеренку, чтобы настроить напоминания через нашего Telegram-бота!',
     timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     suggestions: [
-      '🎓 Добавь пару: Математика в 09:00',
-      '📌 Напомни: сделать домашку',
-      '🎂 У Артёма ДР 15 октября',
+      '🎓 Добавь пару: Физика в 10:00',
+      '📌 Напомни: сделать курсач',
+      '🎂 У друга ДР 20 октября',
       '⚡️ Распиши план на день',
     ],
   },
@@ -135,11 +152,13 @@ export const storage = {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
   },
 
-  // Очистка всех данных пользователя
   clearAllData() {
     localStorage.removeItem(STORAGE_KEYS.TASKS);
     localStorage.removeItem(STORAGE_KEYS.SCHEDULE);
     localStorage.removeItem(STORAGE_KEYS.BIRTHDAYS);
     localStorage.removeItem(STORAGE_KEYS.CHAT);
+    localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.BIRTHDAYS, JSON.stringify([]));
   }
 };
