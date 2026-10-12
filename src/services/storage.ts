@@ -1,150 +1,45 @@
-import { Task, ScheduleItem, BirthdayEvent, ChatMessage } from '../types';
+import { Task, ScheduleItem, BirthdayEvent, ChatMessage, NotificationSettings } from '../types';
+import { tg } from './telegram';
+import { DEFAULT_BOT_TOKEN } from './notificationService';
 
 const STORAGE_KEYS = {
   TASKS: 'smart_planner_tasks',
   SCHEDULE: 'smart_planner_schedule',
   BIRTHDAYS: 'smart_planner_birthdays',
   CHAT: 'smart_planner_chat',
+  SETTINGS: 'smart_planner_settings',
 };
 
-// Сегодняшняя дата для дефолтных данных
-const todayStr = new Date().toISOString().split('T')[0];
-
-const INITIAL_SCHEDULE: ScheduleItem[] = [
-  {
-    id: 'sch-1',
-    title: 'Высшая математика',
-    type: 'lecture',
-    startTime: '09:00',
-    endTime: '10:30',
-    location: 'Ауд. 402 (Главный корпус)',
-    teacherOrHost: 'проф. Иванов А.В.',
-    dayOfWeek: 1, // Понедельник
-    notes: 'Повторить интегралы и ряды Тейлора',
-  },
-  {
-    id: 'sch-2',
-    title: 'Архитектура программных систем',
-    type: 'lab',
-    startTime: '10:50',
-    endTime: '12:20',
-    location: 'Лаборатория 218',
-    teacherOrHost: 'доц. Смирнов Д.К.',
-    dayOfWeek: 1,
-    notes: 'Сдача 2-й лабораторной по микросервисам',
-  },
-  {
-    id: 'sch-3',
-    title: 'Синхронизация по проекту',
-    type: 'meeting',
-    startTime: '14:30',
-    endTime: '15:15',
-    location: 'Telegram звонок / Zoom',
-    teacherOrHost: 'Команда разработки',
-    dayOfWeek: 1,
-    notes: 'Обсудить Telegram Mini App и фичи органайзера',
-  },
-  {
-    id: 'sch-4',
-    title: 'Английский для IT',
-    type: 'practice',
-    startTime: '16:00',
-    endTime: '17:30',
-    location: 'Ауд. 108',
-    teacherOrHost: 'Кузнецова Е.М.',
-    dayOfWeek: 1,
-    notes: 'Презентация своего pet-проекта',
-  },
-];
-
-const INITIAL_TASKS: Task[] = [
-  {
-    id: 'task-1',
-    title: 'Загрузить отчет по лабораторной №2',
-    category: 'study',
-    priority: 'high',
-    timeEstimateMin: 25,
-    completed: false,
-    dueTime: '13:00',
-    date: todayStr,
-  },
-  {
-    id: 'task-2',
-    title: 'Выбрать подарок на ДР Артёму',
-    category: 'personal',
-    priority: 'high',
-    timeEstimateMin: 30,
-    completed: false,
-    dueTime: '18:00',
-    date: todayStr,
-  },
-  {
-    id: 'task-3',
-    title: 'Проверить конспекты по матану перед парой',
-    category: 'study',
-    priority: 'medium',
-    timeEstimateMin: 20,
-    completed: true,
-    dueTime: '08:40',
-    date: todayStr,
-  },
-  {
-    id: 'task-4',
-    title: 'Разобрать рабочую почту и чаты',
-    category: 'work',
-    priority: 'low',
-    timeEstimateMin: 15,
-    completed: false,
-    dueTime: '19:30',
-    date: todayStr,
-  },
-];
-
-const INITIAL_BIRTHDAYS: BirthdayEvent[] = [
-  {
-    id: 'bday-1',
-    name: 'Артём Соколов',
-    relationship: 'friend',
-    birthDate: '10-15', // Через несколько дней
-    age: 21,
-    giftIdeas: ['Механическая клавиатура', 'Сертификат Steam', 'Кружка с принтом'],
-    notes: 'Отмечает в субботу в лофте, скинуться с ребятами',
-    avatarColor: '#6366f1',
-  },
-  {
-    id: 'bday-2',
-    name: 'Мама ❤️',
-    relationship: 'family',
-    birthDate: '10-24',
-    giftIdeas: ['Цветы (пионы/гортензии)', 'Умные часы', 'Билеты в театр'],
-    notes: 'Позвонить обязательно с утра!',
-    avatarColor: '#ec4899',
-  },
-  {
-    id: 'bday-3',
-    name: 'Даша (староста)',
-    relationship: 'classmate',
-    birthDate: '11-04',
-    giftIdeas: ['Ежедневник Moleskine', 'Кофе премиум'],
-    notes: 'Купить открытку от группы',
-    avatarColor: '#10b981',
-  },
-];
+// Пустые начальные списки по запросу пользователя
+const INITIAL_SCHEDULE: ScheduleItem[] = [];
+const INITIAL_TASKS: Task[] = [];
+const INITIAL_BIRTHDAYS: BirthdayEvent[] = [];
 
 const INITIAL_CHAT: ChatMessage[] = [
   {
     id: 'msg-welcome',
     sender: 'assistant',
-    text: 'Привет! Я твой персональный ассистент и органайзер ⚡️\n\nЯ слежу за твоими парами, дедлайнами, днями рождения и помогу сбалансировать день, чтобы ты всё успел без стресса. Чем помочь прямо сейчас?',
-    timestamp: '09:00',
+    text: 'Привет! Я твой персональный органайзер DayFlow ⚡️\n\nТвой планер готов к работе с чистого листа:\n• Добавляй пары и созвоны во вкладке «Пары»\n• Фиксируй задачи и дедлайны в «Дела»\n• Сохраняй дни рождения близких в «Дни рожд.»\n\n💬 Или просто напиши мне сюда в чат человеческим языком: например, «добавь пару по физике в 14:00» или «напомни сделать отчет».\n\n⚙️ В правом верхнем углу нажми на шестеренку, чтобы настроить отправку уведомлений через бота!',
+    timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     suggestions: [
-      '⚡️ Распиши мой день по минутам',
-      '🎓 Какие сегодня пары?',
-      '🎂 У кого скоро ДР?',
-      'Добавь задачу: сделать курсач',
+      '🎓 Добавь пару: Математика в 09:00',
+      '📌 Напомни: сделать домашку',
+      '🎂 У Артёма ДР 15 октября',
+      '⚡️ Распиши план на день',
     ],
   },
 ];
+
+const DEFAULT_SETTINGS: NotificationSettings = {
+  botToken: DEFAULT_BOT_TOKEN,
+  chatId: '',
+  enableTelegramNotify: true,
+  classRemindMinutes: 15,
+  taskRemindMinutes: 30,
+  birthdayRemindDays: 1,
+  morningSummaryEnabled: true,
+  morningSummaryTime: '08:30',
+};
 
 export const storage = {
   getTasks(): Task[] {
@@ -214,4 +109,37 @@ export const storage = {
   saveChat(messages: ChatMessage[]) {
     localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(messages));
   },
+
+  getSettings(): NotificationSettings {
+    const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const user = tg.getUser();
+    const fallbackChatId = user?.id ? String(user.id) : '';
+
+    if (!raw) {
+      const init = { ...DEFAULT_SETTINGS, chatId: fallbackChatId };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(init));
+      return init;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed.chatId && fallbackChatId) {
+        parsed.chatId = fallbackChatId;
+      }
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch {
+      return DEFAULT_SETTINGS;
+    }
+  },
+
+  saveSettings(settings: NotificationSettings) {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  },
+
+  // Очистка всех данных пользователя
+  clearAllData() {
+    localStorage.removeItem(STORAGE_KEYS.TASKS);
+    localStorage.removeItem(STORAGE_KEYS.SCHEDULE);
+    localStorage.removeItem(STORAGE_KEYS.BIRTHDAYS);
+    localStorage.removeItem(STORAGE_KEYS.CHAT);
+  }
 };

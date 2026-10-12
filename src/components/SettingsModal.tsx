@@ -1,0 +1,320 @@
+import React, { useState } from 'react';
+import { 
+  X, Bell, Send, CheckCircle2, AlertCircle, 
+  Clock, Shield, Trash2, Smartphone, Key, User 
+} from 'lucide-react';
+import { NotificationSettings } from '../types';
+import { notificationService } from '../services/notificationService';
+import { tg } from '../services/telegram';
+
+interface SettingsModalProps {
+  settings: NotificationSettings;
+  onSaveSettings: (settings: NotificationSettings) => void;
+  onClearAll: () => void;
+  onClose: () => void;
+}
+
+export const SettingsModal: React.FC<SettingsModalProps> = ({
+  settings: initialSettings,
+  onSaveSettings,
+  onClearAll,
+  onClose,
+}) => {
+  const [settings, setSettings] = useState<NotificationSettings>(initialSettings);
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [testError, setTestError] = useState('');
+
+  const handleToggleNotify = () => {
+    tg.haptic('selection');
+    setSettings(prev => ({ ...prev, enableTelegramNotify: !prev.enableTelegramNotify }));
+  };
+
+  const handleTestNotification = async () => {
+    if (!settings.chatId) {
+      setTestStatus('error');
+      setTestError('Укажите ваш Chat ID (или откройте приложение внутри Telegram)');
+      return;
+    }
+
+    tg.haptic('impact', 'medium');
+    setTestStatus('loading');
+    setTestError('');
+
+    const res = await notificationService.sendTestMessage(settings);
+    if (res.success) {
+      tg.haptic('notification', 'success');
+      setTestStatus('success');
+      setTimeout(() => setTestStatus('idle'), 4000);
+    } else {
+      tg.haptic('notification', 'error');
+      setTestStatus('error');
+      setTestError(res.error || 'Ошибка отправки');
+    }
+  };
+
+  const handleSave = () => {
+    tg.haptic('notification', 'success');
+    onSaveSettings(settings);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '92vh' }}>
+        
+        {/* Шапка модалки */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 12,
+              background: 'var(--primary-gradient)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Bell size={20} color="#fff" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 18, fontWeight: 800 }}>Настройки уведомлений</h3>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Telegram-бот @DayFlowHelper_bot</div>
+            </div>
+          </div>
+
+          <button 
+            onClick={onClose}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, paddingRight: 2 }}>
+          
+          {/* Главный переключатель уведомлений */}
+          <div 
+            className="glass-card" 
+            style={{ 
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: settings.enableTelegramNotify ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(26, 35, 54, 0.8) 100%)' : 'var(--bg-card)'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>Отправка в Telegram</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                Присылать напоминания о парах и делах в личку
+              </div>
+            </div>
+
+            <button
+              onClick={handleToggleNotify}
+              style={{
+                width: 50, height: 28, borderRadius: 14,
+                background: settings.enableTelegramNotify ? 'var(--primary)' : 'rgba(255, 255, 255, 0.15)',
+                border: 'none', cursor: 'pointer', position: 'relative',
+                transition: 'background 0.25s',
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: 3,
+                left: settings.enableTelegramNotify ? 25 : 3,
+                transition: 'left 0.25s',
+              }} />
+            </button>
+          </div>
+
+          {/* Настройки упреждения (за сколько напоминать) */}
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={16} color="var(--primary)" />
+              <span>За сколько времени напоминать</span>
+            </div>
+
+            {/* Пары и встречи */}
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                🎓 До начала пары или встречи:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {[10, 15, 30, 60].map(mins => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => {
+                      tg.haptic('selection');
+                      setSettings(prev => ({ ...prev, classRemindMinutes: mins }));
+                    }}
+                    style={{
+                      padding: '8px 0', borderRadius: 10,
+                      border: '1px solid',
+                      borderColor: settings.classRemindMinutes === mins ? 'var(--primary)' : 'var(--border-subtle)',
+                      background: settings.classRemindMinutes === mins ? 'var(--primary-glow)' : 'rgba(255, 255, 255, 0.03)',
+                      color: settings.classRemindMinutes === mins ? '#fff' : 'var(--text-muted)',
+                      fontWeight: settings.classRemindMinutes === mins ? 700 : 500,
+                      fontSize: 12, cursor: 'pointer',
+                    }}
+                  >
+                    {mins} мин
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Задачи и дедлайны */}
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                📌 До дедлайна задачи:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {[15, 30, 45, 60].map(mins => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => {
+                      tg.haptic('selection');
+                      setSettings(prev => ({ ...prev, taskRemindMinutes: mins }));
+                    }}
+                    style={{
+                      padding: '8px 0', borderRadius: 10,
+                      border: '1px solid',
+                      borderColor: settings.taskRemindMinutes === mins ? 'var(--secondary)' : 'var(--border-subtle)',
+                      background: settings.taskRemindMinutes === mins ? 'var(--secondary-glow)' : 'rgba(255, 255, 255, 0.03)',
+                      color: settings.taskRemindMinutes === mins ? '#fff' : 'var(--text-muted)',
+                      fontWeight: settings.taskRemindMinutes === mins ? 700 : 500,
+                      fontSize: 12, cursor: 'pointer',
+                    }}
+                  >
+                    {mins} мин
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Дни рождения */}
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                🎂 До дня рождения:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {[
+                  { days: 0, label: 'В тот же день' },
+                  { days: 1, label: 'За 1 день' },
+                  { days: 3, label: 'За 3 дня' },
+                  { days: 7, label: 'За неделю' },
+                ].map(opt => (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    onClick={() => {
+                      tg.haptic('selection');
+                      setSettings(prev => ({ ...prev, birthdayRemindDays: opt.days }));
+                    }}
+                    style={{
+                      padding: '8px 4px', borderRadius: 10,
+                      border: '1px solid',
+                      borderColor: settings.birthdayRemindDays === opt.days ? 'var(--accent-rose)' : 'var(--border-subtle)',
+                      background: settings.birthdayRemindDays === opt.days ? 'rgba(236, 72, 153, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                      color: settings.birthdayRemindDays === opt.days ? '#fff' : 'var(--text-muted)',
+                      fontWeight: settings.birthdayRemindDays === opt.days ? 700 : 500,
+                      fontSize: 11, cursor: 'pointer',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Параметры подключения к Telegram */}
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Smartphone size={16} color="var(--accent-green)" />
+              <span>Параметры Telegram бота</span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>
+                Твой Chat ID / Telegram ID
+              </label>
+              <input 
+                type="text" 
+                className="input-glass"
+                placeholder="напр. 123456789"
+                value={settings.chatId}
+                onChange={e => setSettings(prev => ({ ...prev, chatId: e.target.value.trim() }))}
+                style={{ fontSize: 13, padding: '8px 12px' }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                💡 Нажмите <b>/start</b> в боте <a href="https://t.me/DayFlowHelper_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--secondary)' }}>@DayFlowHelper_bot</a>, чтобы бот имел право писать вам в личные сообщения.
+              </div>
+            </div>
+
+            {/* Кнопка отправки теста */}
+            <button
+              onClick={handleTestNotification}
+              disabled={testStatus === 'loading'}
+              className="btn-ghost"
+              style={{
+                width: '100%', justifyContent: 'center', marginTop: 4,
+                borderColor: testStatus === 'success' ? 'var(--accent-green)' : 'var(--border-subtle)',
+                color: testStatus === 'success' ? 'var(--accent-green)' : 'var(--text-main)',
+              }}
+            >
+              {testStatus === 'loading' ? (
+                <span>Отправка...</span>
+              ) : testStatus === 'success' ? (
+                <>
+                  <CheckCircle2 size={16} color="var(--accent-green)" />
+                  <span>Уведомление доставлено в Telegram! 🎉</span>
+                </>
+              ) : (
+                <>
+                  <Send size={15} />
+                  <span>Отправить тестовое напоминание в бот</span>
+                </>
+              )}
+            </button>
+
+            {testError && (
+              <div style={{ fontSize: 12, color: 'var(--accent-rose)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertCircle size={14} />
+                <span>{testError}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Очистить все данные */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+            <button
+              onClick={() => {
+                if (window.confirm('Очистить все задачи, расписание и начать с чистого листа?')) {
+                  tg.haptic('notification', 'warning');
+                  onClearAll();
+                  onClose();
+                }
+              }}
+              style={{
+                background: 'transparent', border: 'none', color: 'var(--accent-rose)',
+                fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: 0.75
+              }}
+            >
+              <Trash2 size={14} />
+              <span>Очистить все данные органайзера</span>
+            </button>
+          </div>
+
+        </div>
+
+        {/* Кнопка сохранения */}
+        <button 
+          onClick={handleSave}
+          className="btn-primary"
+          style={{ width: '100%', padding: '12px', fontSize: 14, marginTop: 14 }}
+        >
+          Сохранить настройки
+        </button>
+
+      </div>
+    </div>
+  );
+};

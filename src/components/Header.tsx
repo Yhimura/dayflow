@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Calendar, CheckCircle2, GraduationCap, HeartHandshake } from 'lucide-react';
+import { Sparkles, Calendar, CheckCircle2, GraduationCap, Settings } from 'lucide-react';
 import { tg } from '../services/telegram';
 import { DayAnalysis } from '../types';
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   activeTasksCount: number;
   scheduleCount: number;
   onOpenOptimizer: () => void;
+  onOpenSettings: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTasksCount,
   scheduleCount,
   onOpenOptimizer,
+  onOpenSettings,
 }) => {
   const user = tg.getUser();
   const today = new Date();
@@ -41,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header style={{ padding: '18px 16px 12px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Верхняя строчка: Профиль и дата */}
+      {/* Верхняя строчка: Профиль, дата и кнопки действий */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -53,17 +55,31 @@ export const Header: React.FC<HeaderProps> = ({
           </h1>
         </div>
 
-        <button 
-          onClick={() => {
-            tg.haptic('impact', 'medium');
-            onOpenOptimizer();
-          }}
-          className="btn-primary"
-          style={{ padding: '10px 14px', fontSize: 13, borderRadius: 14 }}
-        >
-          <Sparkles size={16} />
-          <span>План дня</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button 
+            onClick={() => {
+              tg.haptic('selection');
+              onOpenSettings();
+            }}
+            className="btn-ghost"
+            style={{ width: 40, height: 40, padding: 0, borderRadius: 14, justifyContent: 'center' }}
+            title="Настройки уведомлений"
+          >
+            <Settings size={18} color="var(--text-muted)" />
+          </button>
+
+          <button 
+            onClick={() => {
+              tg.haptic('impact', 'medium');
+              onOpenOptimizer();
+            }}
+            className="btn-primary"
+            style={{ padding: '10px 14px', fontSize: 13, borderRadius: 14 }}
+          >
+            <Sparkles size={16} />
+            <span>План дня</span>
+          </button>
+        </div>
       </div>
 
       {/* Метрики дня в стеклянной плашке */}

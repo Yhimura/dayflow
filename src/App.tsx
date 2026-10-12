@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { storage } from './services/storage';
 import { aiPlanner } from './services/aiPlanner';
 import { tg } from './services/telegram';
-import { Task, ScheduleItem, BirthdayEvent, ChatMessage, DayPlanSlot } from './types';
+import { notificationService } from './services/notificationService';
+import { Task, ScheduleItem, BirthdayEvent, ChatMessage, DayPlanSlot, NotificationSettings } from './types';
 import { Header } from './components/Header';
 import { DayTab } from './components/DayTab';
 import { ScheduleTab } from './components/ScheduleTab';
@@ -11,6 +12,7 @@ import { BirthdaysTab } from './components/BirthdaysTab';
 import { ChatTab } from './components/ChatTab';
 import { BottomNav, TabType } from './components/BottomNav';
 import { DayPlannerModal } from './components/DayPlannerModal';
+import { SettingsModal } from './components/SettingsModal';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('day');
@@ -18,10 +20,15 @@ export const App: React.FC = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [birthdays, setBirthdays] = useState<BirthdayEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [settings, setSettings] = useState<NotificationSettings>(storage.getSettings());
 
-  // Состояние модалки оптимизатора дня
+  // Модальные окна
   const [showOptimizer, setShowOptimizer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [dayPlanSlots, setDayPlanSlots] = useState<DayPlanSlot[]>([]);
+
+  // Отслеживание отправленных напоминаний во избежание дубликатов
+  const sentRemindersRef = useRef<Set<string>>(new Set());
 
   // Загрузка начальных данных и инициализация Telegram
   useEffect(() => {
@@ -30,9 +37,57 @@ export const App: React.FC = () => {
     setSchedule(storage.getSchedule());
     setBirthdays(storage.getBirthdays());
     setChat(storage.getChat());
+
+    const loadedSettings = storage.getSettings();
+    setSettings(loadedSettings);
   }, []);
 
-  // Синхронизация в localStorage при изменении
+  // Фоновый мониторинг напоминаний в Telegram бот
+  useEffect(() => {
+    if (!settings.enableTelegramNotify || !settings.chatId) return;
+
+    const checkReminders = () => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      // 1. Проверка пар
+      schedule.forEach(item => {
+        const [startH, startM] = item.startTime.split(':').map(Number);
+        const itemStartMin = startH * 60 + startM;
+        const diff = itemStartMin - currentMinutes;
+
+        // Если ровно время упреждения (например, 15 мин)
+        if (diff === settings.classRemindMinutes) {
+          const key = `class-${item.id}-${now.toDateString()}`;
+          if (!sentRemindersRef.current.has(key)) {
+            sentRemindersRef.current.add(key);
+            notificationService.sendClassReminder(settings, item);
+          }
+        }
+      });
+
+      // 2. Проверка дедлайнов задач
+      tasks.forEach(task => {
+        if (task.completed || !task.dueTime) return;
+        const [dueH, dueM] = task.dueTime.split(':').map(Number);
+        const taskDueMin = dueH * 60 + dueM;
+        const diff = taskDueMin - currentMinutes;
+
+        if (diff === settings.taskRemindMinutes) {
+          const key = `task-${task.id}-${now.toDateString()}`;
+          if (!sentRemindersRef.current.has(key)) {
+            sentRemindersRef.current.add(key);
+            notificationService.sendTaskReminder(settings, task);
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(checkReminders, 45000); // каждые 45 секунд
+    return () => clearInterval(interval);
+  }, [schedule, tasks, settings]);
+
+  // Синхронизация данных
   const updateTasks = (newTasks: Task[]) => {
     setTasks(newTasks);
     storage.saveTasks(newTasks);
@@ -51,6 +106,20 @@ export const App: React.FC = () => {
   const updateChat = (newChat: ChatMessage[]) => {
     setChat(newChat);
     storage.saveChat(newChat);
+  };
+
+  const handleSaveSettings = (newSettings: NotificationSettings) => {
+    setSettings(newSettings);
+    storage.saveSettings(newSettings);
+  };
+
+  const handleClearAll = () => {
+    storage.clearAllData();
+    setTasks([]);
+    setSchedule([]);
+    setBirthdays([]);
+    setChat(storage.getChat());
+    tg.showAlert('Все данные очищены. Органайзер готов к работе с чистого листа!');
   };
 
   // Обработчики задач
@@ -117,7 +186,6 @@ export const App: React.FC = () => {
 
     const parsed = aiPlanner.parseUserIntent(text);
 
-    // Автоматические действия на основе интента
     if (parsed.action === 'optimize_day') {
       setTimeout(() => {
         handleOpenOptimizer();
@@ -157,19 +225,19 @@ export const App: React.FC = () => {
     updateChat([...chat, userMessage, assistantMessage]);
   };
 
-  // Анализ текущего дня
   const analysis = aiPlanner.analyzeDay(schedule, tasks);
   const activeTasksCount = tasks.filter(t => !t.completed).length;
 
   return (
     <div className="app-container">
-      {/* Шапка отображается на всех вкладках, кроме чата для максимума пространства */}
+      {/* Шапка */}
       {activeTab !== 'chat' && (
         <Header 
           analysis={analysis}
           activeTasksCount={activeTasksCount}
           scheduleCount={schedule.length}
           onOpenOptimizer={handleOpenOptimizer}
+          onOpenSettings={() => setShowSettings(true)}
         />
       )}
 
@@ -234,12 +302,22 @@ export const App: React.FC = () => {
         scheduleCount={schedule.length}
       />
 
-      {/* Модальное окно оптимизатора дня */}
+      {/* Модалка оптимизатора дня */}
       {showOptimizer && (
         <DayPlannerModal 
           slots={dayPlanSlots}
           analysis={analysis}
           onClose={() => setShowOptimizer(false)}
+        />
+      )}
+
+      {/* Модалка настроек уведомлений */}
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          onSaveSettings={handleSaveSettings}
+          onClearAll={handleClearAll}
+          onClose={() => setShowSettings(false)}
         />
       )}
     </div>

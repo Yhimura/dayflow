@@ -66,3 +66,15 @@ export interface DayAnalysis {
   verdict: 'relaxed' | 'optimal' | 'busy' | 'overloaded';
   recommendations: string[];
 }
+
+export interface NotificationSettings {
+  botToken: string;
+  chatId: string;
+  enableTelegramNotify: boolean;
+  classRemindMinutes: number; // e.g. 15
+  taskRemindMinutes: number;  // e.g. 30
+  birthdayRemindDays: number; // e.g. 1
+  morningSummaryEnabled: boolean;
+  morningSummaryTime: string; // "08:30"
+}
+
