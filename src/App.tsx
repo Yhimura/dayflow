@@ -3,7 +3,12 @@ import { storage } from './services/storage';
 import { aiPlanner } from './services/aiPlanner';
 import { tg } from './services/telegram';
 import { notificationService } from './services/notificationService';
-import { Task, ScheduleItem, BirthdayEvent, ChatMessage, DayPlanSlot, NotificationSettings } from './types';
+import { voiceBrainParser } from './services/voiceBrainParser';
+import { starsPayment } from './services/starsPayment';
+import { 
+  Task, ScheduleItem, BirthdayEvent, ChatMessage, 
+  DayPlanSlot, NotificationSettings, ExtractedVoiceData, UserSubscription 
+} from './types';
 import { Header } from './components/Header';
 import { DayTab } from './components/DayTab';
 import { ScheduleTab } from './components/ScheduleTab';
@@ -13,6 +18,10 @@ import { ChatTab } from './components/ChatTab';
 import { BottomNav, TabType } from './components/BottomNav';
 import { DayPlannerModal } from './components/DayPlannerModal';
 import { SettingsModal } from './components/SettingsModal';
+import { VoiceRecorderModal } from './components/VoiceRecorderModal';
+import { VoiceBrainConfirmationModal } from './components/VoiceBrainConfirmationModal';
+import { PaywallModal } from './components/PaywallModal';
+import { VoiceFloatingButton } from './components/VoiceFloatingButton';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('day');
@@ -21,11 +30,17 @@ export const App: React.FC = () => {
   const [birthdays, setBirthdays] = useState<BirthdayEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [settings, setSettings] = useState<NotificationSettings>(storage.getSettings());
+  const [subscription, setSubscription] = useState<UserSubscription>(starsPayment.getSubscription());
 
   // Модальные окна
   const [showOptimizer, setShowOptimizer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showVoiceConfirmation, setShowVoiceConfirmation] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+
   const [dayPlanSlots, setDayPlanSlots] = useState<DayPlanSlot[]>([]);
+  const [extractedVoiceData, setExtractedVoiceData] = useState<ExtractedVoiceData | null>(null);
 
   // Отслеживание отправленных напоминаний во избежание дубликатов
   const sentRemindersRef = useRef<Set<string>>(new Set());
@@ -40,6 +55,9 @@ export const App: React.FC = () => {
 
     const loadedSettings = storage.getSettings();
     setSettings(loadedSettings);
+
+    const loadedSub = starsPayment.getSubscription();
+    setSubscription(loadedSub);
   }, []);
 
   // Фоновый мониторинг напоминаний в Telegram бот
@@ -56,7 +74,6 @@ export const App: React.FC = () => {
         const itemStartMin = startH * 60 + startM;
         const diff = itemStartMin - currentMinutes;
 
-        // Если ровно время упреждения (например, 15 мин)
         if (diff === settings.classRemindMinutes) {
           const key = `class-${item.id}-${now.toDateString()}`;
           if (!sentRemindersRef.current.has(key)) {
@@ -83,7 +100,7 @@ export const App: React.FC = () => {
       });
     };
 
-    const interval = setInterval(checkReminders, 45000); // каждые 45 секунд
+    const interval = setInterval(checkReminders, 45000);
     return () => clearInterval(interval);
   }, [schedule, tasks, settings]);
 
@@ -173,6 +190,74 @@ export const App: React.FC = () => {
     setShowOptimizer(true);
   };
 
+  // ==========================================
+  // 🎙 VOICE BRAIN AI ОБРАБОТЧИКИ
+  // ==========================================
+
+  const handleOpenVoiceBrain = () => {
+    const check = starsPayment.canUseVoiceBrain();
+    if (!check.allowed) {
+      setShowPaywall(true);
+      return;
+    }
+    setShowVoiceRecorder(true);
+  };
+
+  const handleVoiceTranscriptComplete = (transcript: string) => {
+    setShowVoiceRecorder(false);
+
+    if (!transcript.trim()) {
+      tg.showAlert('Речь не распознана. Попробуйте еще раз.');
+      return;
+    }
+
+    // Нейросетевой парсинг потока мыслей на сущности
+    const extracted = voiceBrainParser.parseTranscript(transcript);
+    setExtractedVoiceData(extracted);
+    setShowVoiceConfirmation(true);
+  };
+
+  const handleApplyVoiceData = (selected: {
+    scheduleItems: Omit<ScheduleItem, 'id'>[];
+    tasks: Omit<Task, 'id'>[];
+    birthdays: Omit<BirthdayEvent, 'id'>[];
+  }) => {
+    // 1. Списание запроса
+    starsPayment.consumeVoiceRequest();
+    setSubscription(starsPayment.getSubscription());
+
+    // 2. Создание сущностей
+    const newSchedule: ScheduleItem[] = selected.scheduleItems.map((item, idx) => ({
+      ...item,
+      id: `sch-voice-${Date.now()}-${idx}`,
+    }));
+
+    const newTasksList: Task[] = selected.tasks.map((task, idx) => ({
+      ...task,
+      id: `task-voice-${Date.now()}-${idx}`,
+    }));
+
+    const newBirthdaysList: BirthdayEvent[] = selected.birthdays.map((bday, idx) => ({
+      ...bday,
+      id: `bday-voice-${Date.now()}-${idx}`,
+    }));
+
+    if (newSchedule.length > 0) updateSchedule([...schedule, ...newSchedule]);
+    if (newTasksList.length > 0) updateTasks([...newTasksList, ...tasks]);
+    if (newBirthdaysList.length > 0) updateBirthdays([...birthdays, ...newBirthdaysList]);
+
+    // 3. Добавление отчета в чат
+    const nowTime = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const summaryMsg: ChatMessage = {
+      id: `msg-voice-${Date.now()}`,
+      sender: 'assistant',
+      text: `⚡️ <b>Voice Brain успешно обработал голосовой поток:</b>\n\n«${extractedVoiceData?.rawTranscript}»\n\n✅ Добавлено: ${newSchedule.length} пар/встреч, ${newTasksList.length} задач, ${newBirthdaysList.length} событий.`,
+      timestamp: nowTime,
+      suggestions: ['⚡️ Пересчитай план дня', '🎓 Покажи расписание'],
+    };
+    updateChat([...chat, summaryMsg]);
+  };
+
   // Отправка сообщений в AI чат
   const handleSendMessage = (text: string) => {
     const nowTime = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -228,6 +313,8 @@ export const App: React.FC = () => {
   const analysis = aiPlanner.analyzeDay(schedule, tasks);
   const activeTasksCount = tasks.filter(t => !t.completed).length;
 
+  const voiceBrainCheck = starsPayment.canUseVoiceBrain();
+
   return (
     <div className="app-container">
       {/* Шапка */}
@@ -236,8 +323,10 @@ export const App: React.FC = () => {
           analysis={analysis}
           activeTasksCount={activeTasksCount}
           scheduleCount={schedule.length}
+          isPro={subscription.isPro}
           onOpenOptimizer={handleOpenOptimizer}
           onOpenSettings={() => setShowSettings(true)}
+          onOpenPaywall={() => setShowPaywall(true)}
         />
       )}
 
@@ -290,9 +379,19 @@ export const App: React.FC = () => {
             onOpenOptimizer={handleOpenOptimizer}
             onAddTask={handleAddTask}
             onAddSchedule={handleAddSchedule}
+            onOpenVoiceRecorder={handleOpenVoiceBrain}
           />
         )}
       </main>
+
+      {/* Плавающая кнопка микрофона Voice Brain AI */}
+      {activeTab !== 'chat' && !showVoiceRecorder && !showVoiceConfirmation && !showPaywall && (
+        <VoiceFloatingButton 
+          isPro={subscription.isPro}
+          remainingRequests={voiceBrainCheck.remaining}
+          onClick={handleOpenVoiceBrain}
+        />
+      )}
 
       {/* Нижняя навигация */}
       <BottomNav 
@@ -318,6 +417,32 @@ export const App: React.FC = () => {
           onSaveSettings={handleSaveSettings}
           onClearAll={handleClearAll}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Модалка записи звука Voice Brain */}
+      {showVoiceRecorder && (
+        <VoiceRecorderModal 
+          onTranscriptComplete={handleVoiceTranscriptComplete}
+          onClose={() => setShowVoiceRecorder(false)}
+        />
+      )}
+
+      {/* Модалка подтверждения распознанных сущностей */}
+      {showVoiceConfirmation && extractedVoiceData && (
+        <VoiceBrainConfirmationModal 
+          data={extractedVoiceData}
+          onApply={handleApplyVoiceData}
+          onClose={() => setShowVoiceConfirmation(false)}
+        />
+      )}
+
+      {/* Модалка пейволла Telegram Stars */}
+      {showPaywall && (
+        <PaywallModal 
+          remainingRequests={voiceBrainCheck.remaining}
+          onSuccess={() => setSubscription(starsPayment.getSubscription())}
+          onClose={() => setShowPaywall(false)}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Calendar, CheckCircle2, GraduationCap, Settings } from 'lucide-react';
+import { Sparkles, Calendar, CheckCircle2, GraduationCap, Settings, Star } from 'lucide-react';
 import { tg } from '../services/telegram';
 import { DayAnalysis } from '../types';
 
@@ -7,16 +7,20 @@ interface HeaderProps {
   analysis: DayAnalysis;
   activeTasksCount: number;
   scheduleCount: number;
+  isPro: boolean;
   onOpenOptimizer: () => void;
   onOpenSettings: () => void;
+  onOpenPaywall: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   analysis,
   activeTasksCount,
   scheduleCount,
+  isPro,
   onOpenOptimizer,
   onOpenSettings,
+  onOpenPaywall,
 }) => {
   const user = tg.getUser();
   const today = new Date();
@@ -50,9 +54,54 @@ export const Header: React.FC<HeaderProps> = ({
             <Calendar size={14} color="var(--primary)" />
             {dateFormatted}
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, marginTop: 2, letterSpacing: '-0.3px' }}>
-            Привет, {user.first_name || 'Студент'} 👋
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0 }}>
+              Привет, {user.first_name || 'Студент'} 👋
+            </h1>
+
+            {/* Статус подписки Telegram Stars */}
+            {isPro ? (
+              <span 
+                style={{
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                  color: '#111827',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: '3px 7px',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)',
+                }}
+              >
+                <span>PRO</span>
+                <Star size={10} fill="#111827" />
+              </span>
+            ) : (
+              <button
+                onClick={() => {
+                  tg.haptic('selection');
+                  onOpenPaywall();
+                }}
+                style={{
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  color: '#fbbf24',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '3px 7px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
+              >
+                <span>⭐ Pro</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

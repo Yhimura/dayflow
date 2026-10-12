@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Send, Sparkles, Bot, User, Check, 
-  Calendar, FileText, Bell, Laptop 
+  Send, Sparkles, Bot, Check, 
+  FileText, Bell, Mic 
 } from 'lucide-react';
 import { ChatMessage, ScheduleItem, Task, BirthdayEvent } from '../types';
 import { aiPlanner } from '../services/aiPlanner';
@@ -16,6 +16,7 @@ interface ChatTabProps {
   onOpenOptimizer: () => void;
   onAddTask: (task: Omit<Task, 'id'>) => void;
   onAddSchedule: (item: Omit<ScheduleItem, 'id'>) => void;
+  onOpenVoiceRecorder: () => void;
 }
 
 export const ChatTab: React.FC<ChatTabProps> = ({
@@ -27,6 +28,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   onOpenOptimizer,
   onAddTask,
   onAddSchedule,
+  onOpenVoiceRecorder,
 }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -180,7 +182,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Поле ввода */}
+      {/* Поле ввода с кнопкой микрофона Voice Brain */}
       <form 
         onSubmit={e => {
           e.preventDefault();
@@ -194,6 +196,19 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           border: '1px solid var(--border-subtle)',
         }}
       >
+        <button
+          type="button"
+          onClick={() => {
+            tg.haptic('impact', 'medium');
+            onOpenVoiceRecorder();
+          }}
+          className="btn-ghost"
+          style={{ width: 38, height: 38, padding: 0, borderRadius: 12, justifyContent: 'center', color: 'var(--secondary)' }}
+          title="Голосовой ввод Voice Brain"
+        >
+          <Mic size={18} />
+        </button>
+
         <input 
           type="text"
           className="input-glass"
@@ -206,9 +221,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         <button 
           type="submit"
           className="btn-primary"
-          style={{ width: 40, height: 40, padding: 0, borderRadius: 12, flexShrink: 0 }}
+          style={{ width: 38, height: 38, padding: 0, borderRadius: 12, flexShrink: 0 }}
         >
-          <Send size={18} />
+          <Send size={17} />
         </button>
       </form>
 

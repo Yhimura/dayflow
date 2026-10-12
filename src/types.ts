@@ -78,3 +78,34 @@ export interface NotificationSettings {
   morningSummaryTime: string; // "08:30"
 }
 
+// ==========================================
+// 🚀 VOICE BRAIN AI & TELEGRAM STARS TYPES
+// ==========================================
+
+export interface ExtractedVoiceData {
+  rawTranscript: string;
+  summary: string;
+  scheduleItems: Omit<ScheduleItem, 'id'>[];
+  tasks: Omit<Task, 'id'>[];
+  birthdays: Omit<BirthdayEvent, 'id'>[];
+}
+
+export interface UserSubscription {
+  isPro: boolean;
+  proExpiresAt?: string; // ISO string
+  freeVoiceRequestsUsed: number;
+  freeVoiceRequestsLimit: number; // 5 по умолчанию
+  bonusRequests: number; // купленные разово запросы
+  weekResetDate: string; // ISO string даты сброса (понедельник недели)
+}
+
+export interface StarsTariff {
+  id: string;
+  title: string;
+  starsAmount: number;
+  description: string;
+  badge?: string;
+  type: 'subscription' | 'package';
+  bonusRequests?: number;
+  durationDays?: number;
+}
