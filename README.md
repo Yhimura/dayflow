@@ -1,32 +1,38 @@
-# React + TypeScript + Vite
+# 🚀 DayFlow — Telegram Mini App (Умный Органайзер & AI-Ассистент)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Премиальный Telegram Mini App: расписание пар и встреч, список задач с приоритетами, трекер дней рождения с обратным отсчетом, чат для срочных вопросов и интеллектуальный балансировщик дня.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠 Технологии
+- **Frontend:** React 19 + TypeScript + Vite
+- **Styling:** Vanilla CSS (Dark Glassmorphism, Neon Glow)
+- **Telegram WebApp SDK:** тактильный отклик (Haptic Feedback), themeParams
+- **Деплой:** GitHub Actions ➔ GitHub Pages (или Vercel)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🤖 Как подключить Mini App к Telegram Боту (@BotFather):
 
-## Expanding the Oxlint configuration
+1. Открой в Telegram бота **[@BotFather](https://t.me/BotFather)**.
+2. Отправь команду: `/newbot` (или выбери существующего через `/mybots`).
+3. Введи имя и username для бота (например, `DayFlowAssistantBot`).
+4. Настрой Web App / Menu Button:
+   - Отправь команду `/newapp` (или `/setmenubutton`).
+   - Выбери своего бота.
+   - Введи название: `DayFlow`.
+   - Введи описание: `Умный органайзер дня и AI-помощник`.
+   - Загрузи иконку 640x360 (если просит).
+   - В поле **Web App URL** укажи ссылку на деплой:
+     `https://<твой-логин-github>.github.io/<имя-репозитория>/` (или ссылку с Vercel).
+   - Укажи short name (например, `app`).
+5. Готово! Теперь в твоем боте появится кнопка **«Запустить DayFlow»** в нижнем меню, открывающая приложение во весь экран.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+---
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## 💻 Локальный запуск
+```bash
+npm install
+npm run dev
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Откройте: `http://localhost:5175/`
