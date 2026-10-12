@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   X, Bell, Send, CheckCircle2, AlertCircle, 
-  Clock, Shield, Trash2, Smartphone, Key, User 
+  Clock, Shield, Trash2, Smartphone, Key, User, Crown 
 } from 'lucide-react';
 import { NotificationSettings } from '../types';
 import { notificationService } from '../services/notificationService';
@@ -11,6 +11,7 @@ interface SettingsModalProps {
   settings: NotificationSettings;
   onSaveSettings: (settings: NotificationSettings) => void;
   onClearAll: () => void;
+  onOpenAdmin: () => void;
   onClose: () => void;
 }
 
@@ -18,6 +19,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings: initialSettings,
   onSaveSettings,
   onClearAll,
+  onOpenAdmin,
   onClose,
 }) => {
   const [settings, setSettings] = useState<NotificationSettings>(initialSettings);
@@ -281,6 +283,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>{testError}</span>
               </div>
             )}
+          </div>
+
+          {/* Панель разработчика (Dev VIP) */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+            <button
+              onClick={() => {
+                tg.haptic('selection');
+                onOpenAdmin();
+                onClose();
+              }}
+              className="btn-ghost"
+              style={{
+                width: '100%', justifyContent: 'center',
+                borderColor: 'rgba(251, 191, 36, 0.4)',
+                background: 'rgba(251, 191, 36, 0.08)',
+                color: '#fbbf24',
+                fontWeight: 700,
+                padding: '10px 14px',
+                borderRadius: 12,
+              }}
+            >
+              <Crown size={16} />
+              <span>👑 Панель разработчика (Dev VIP)</span>
+            </button>
           </div>
 
           {/* Очистить все данные */}

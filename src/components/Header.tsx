@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, Calendar, CheckCircle2, GraduationCap, Settings, Star } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, Calendar, CheckCircle2, GraduationCap, Settings, Star, ShieldCheck } from 'lucide-react';
 import { tg } from '../services/telegram';
 import { DayAnalysis } from '../types';
 
@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenOptimizer: () => void;
   onOpenSettings: () => void;
   onOpenPaywall: () => void;
+  onOpenAdmin: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenOptimizer,
   onOpenSettings,
   onOpenPaywall,
+  onOpenAdmin,
 }) => {
   const user = tg.getUser();
   const today = new Date();
@@ -29,6 +31,20 @@ export const Header: React.FC<HeaderProps> = ({
     day: 'numeric',
     month: 'long',
   });
+
+  // Пасхалка: 5 тапов по заголовку открывают админ-панель
+  const [tapCount, setTapCount] = useState(0);
+
+  const handleTitleTap = () => {
+    const next = tapCount + 1;
+    setTapCount(next);
+    tg.haptic('selection');
+    if (next >= 5) {
+      setTapCount(0);
+      tg.haptic('notification', 'success');
+      onOpenAdmin();
+    }
+  };
 
   const getVerdictBadge = () => {
     switch (analysis.verdict) {
@@ -55,13 +71,21 @@ export const Header: React.FC<HeaderProps> = ({
             {dateFormatted}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0 }}>
+            <h1 
+              onClick={handleTitleTap}
+              style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0, cursor: 'pointer' }}
+              title="Нажмите 5 раз для входа в панель разработчика"
+            >
               Привет, {user.first_name || 'Студент'} 👋
             </h1>
 
             {/* Статус подписки Telegram Stars */}
             {isPro ? (
-              <span 
+              <button
+                onClick={() => {
+                  tg.haptic('selection');
+                  onOpenAdmin();
+                }}
                 style={{
                   background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
                   color: '#111827',
@@ -69,15 +93,18 @@ export const Header: React.FC<HeaderProps> = ({
                   fontWeight: 800,
                   padding: '3px 7px',
                   borderRadius: 8,
+                  border: 'none',
+                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 3,
                   boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)',
                 }}
+                title="Нажмите для входа в панель управления VIP"
               >
                 <span>PRO</span>
                 <Star size={10} fill="#111827" />
-              </span>
+              </button>
             ) : (
               <button
                 onClick={() => {

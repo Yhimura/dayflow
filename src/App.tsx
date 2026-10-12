@@ -22,6 +22,7 @@ import { VoiceRecorderModal } from './components/VoiceRecorderModal';
 import { VoiceBrainConfirmationModal } from './components/VoiceBrainConfirmationModal';
 import { PaywallModal } from './components/PaywallModal';
 import { VoiceFloatingButton } from './components/VoiceFloatingButton';
+import { AdminModal } from './components/AdminModal';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('day');
@@ -38,6 +39,7 @@ export const App: React.FC = () => {
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showVoiceConfirmation, setShowVoiceConfirmation] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const [dayPlanSlots, setDayPlanSlots] = useState<DayPlanSlot[]>([]);
   const [extractedVoiceData, setExtractedVoiceData] = useState<ExtractedVoiceData | null>(null);
@@ -211,7 +213,6 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Нейросетевой парсинг потока мыслей на сущности
     const extracted = voiceBrainParser.parseTranscript(transcript);
     setExtractedVoiceData(extracted);
     setShowVoiceConfirmation(true);
@@ -222,11 +223,9 @@ export const App: React.FC = () => {
     tasks: Omit<Task, 'id'>[];
     birthdays: Omit<BirthdayEvent, 'id'>[];
   }) => {
-    // 1. Списание запроса
     starsPayment.consumeVoiceRequest();
     setSubscription(starsPayment.getSubscription());
 
-    // 2. Создание сущностей
     const newSchedule: ScheduleItem[] = selected.scheduleItems.map((item, idx) => ({
       ...item,
       id: `sch-voice-${Date.now()}-${idx}`,
@@ -246,7 +245,6 @@ export const App: React.FC = () => {
     if (newTasksList.length > 0) updateTasks([...newTasksList, ...tasks]);
     if (newBirthdaysList.length > 0) updateBirthdays([...birthdays, ...newBirthdaysList]);
 
-    // 3. Добавление отчета в чат
     const nowTime = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     const summaryMsg: ChatMessage = {
       id: `msg-voice-${Date.now()}`,
@@ -327,6 +325,7 @@ export const App: React.FC = () => {
           onOpenOptimizer={handleOpenOptimizer}
           onOpenSettings={() => setShowSettings(true)}
           onOpenPaywall={() => setShowPaywall(true)}
+          onOpenAdmin={() => setShowAdminModal(true)}
         />
       )}
 
@@ -385,7 +384,7 @@ export const App: React.FC = () => {
       </main>
 
       {/* Плавающая кнопка микрофона Voice Brain AI */}
-      {activeTab !== 'chat' && !showVoiceRecorder && !showVoiceConfirmation && !showPaywall && (
+      {activeTab !== 'chat' && !showVoiceRecorder && !showVoiceConfirmation && !showPaywall && !showAdminModal && (
         <VoiceFloatingButton 
           isPro={subscription.isPro}
           remainingRequests={voiceBrainCheck.remaining}
@@ -416,6 +415,7 @@ export const App: React.FC = () => {
           settings={settings}
           onSaveSettings={handleSaveSettings}
           onClearAll={handleClearAll}
+          onOpenAdmin={() => setShowAdminModal(true)}
           onClose={() => setShowSettings(false)}
         />
       )}
@@ -443,6 +443,15 @@ export const App: React.FC = () => {
           remainingRequests={voiceBrainCheck.remaining}
           onSuccess={() => setSubscription(starsPayment.getSubscription())}
           onClose={() => setShowPaywall(false)}
+        />
+      )}
+
+      {/* Модалка Админ-панели (Dev VIP) */}
+      {showAdminModal && (
+        <AdminModal 
+          isPro={subscription.isPro}
+          onRefreshSubscription={() => setSubscription(starsPayment.getSubscription())}
+          onClose={() => setShowAdminModal(false)}
         />
       )}
     </div>
