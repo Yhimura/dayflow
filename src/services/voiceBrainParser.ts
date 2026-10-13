@@ -353,13 +353,28 @@ export class VoiceBrainParserService {
 
     // Категория
     let category: TaskCategory = 'personal';
-    if (lower.includes('дз') || lower.includes('домашк') || lower.includes('реферат') || 
-        lower.includes('курсач') || lower.includes('лабу') || lower.includes('учеб') || lower.includes('сесси')) {
-      category = 'study';
-    } else if (lower.includes('работ') || lower.includes('отчет') || lower.includes('клиент') || lower.includes('проект')) {
+    const workKeywords = ['работ', 'отчет', 'клиент', 'проект', 'начальник', 'босс', 'таск', 'договор', 'коллег', 'офис', 'совещан', 'сделк', 'crm'];
+    const studyKeywords = ['дз', 'домашк', 'реферат', 'курсач', 'лабу', 'лаба', 'учеб', 'сесси', 'препод', 'универ', 'зачет', 'экзамен', 'институт'];
+    
+    if (workKeywords.some(w => lower.includes(w))) {
       category = 'work';
-    } else if (priority === 'high') {
+    } else if (studyKeywords.some(w => lower.includes(w))) {
+      category = 'study';
+    } else if (priority === 'high' || lower.includes('срочно')) {
       category = 'urgent';
+    }
+
+    // Дата выполнения задачи
+    let taskDate = todayStr;
+    const tomorrow = new Date(Date.now() + 86400000);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const afterTomorrow = new Date(Date.now() + 2 * 86400000);
+    const afterTomorrowStr = afterTomorrow.toISOString().split('T')[0];
+
+    if (lower.includes('послезавтра')) {
+      taskDate = afterTomorrowStr;
+    } else if (lower.includes('завтра')) {
+      taskDate = tomorrowStr;
     }
 
     // Извлечение дедлайна по времени (например: "в 08:00", "до 19:30", "к 15:00")
@@ -395,6 +410,7 @@ export class VoiceBrainParserService {
       .replace(/\bкакой-нибудь\s+/gi, '')
       .replace(/\s+(?:в|до|к)\s+\d{1,2}[:.]\d{2}/gi, '')
       .replace(/\s+\d{1,2}[:.]\d{2}/gi, '')
+      .replace(/(?:^|\s)(?:сегодня|завтра|послезавтра)(?:\s|$)/gi, ' ')
       .trim();
 
     if (!cleanTitle) cleanTitle = raw;
@@ -406,7 +422,7 @@ export class VoiceBrainParserService {
       timeEstimateMin,
       completed: false,
       dueTime,
-      date: todayStr,
+      date: taskDate,
     };
   }
 

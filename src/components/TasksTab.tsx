@@ -63,20 +63,39 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     else if (filter === 'personal') setCategory('personal');
   }, [filter]);
 
+  const handleTitleChange = (val: string) => {
+    setNewTitle(val);
+    const low = val.toLowerCase();
+    const workWords = ['работ', 'отчет', 'клиент', 'проект', 'начальник', 'босс', 'договор', 'офис', 'совещан', 'сделк'];
+    const studyWords = ['дз', 'домашк', 'реферат', 'курсач', 'лабу', 'лаба', 'учеб', 'сесси', 'препод', 'универ', 'зачет', 'экзамен'];
+    if (workWords.some(w => low.includes(w))) {
+      setCategory('work');
+    } else if (studyWords.some(w => low.includes(w))) {
+      setCategory('study');
+    }
+  };
+
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
     tg.haptic('notification', 'success');
+    const targetCategory = category;
+
     onAddTask({
       title: newTitle.trim(),
-      category,
+      category: targetCategory,
       priority,
       timeEstimateMin: timeMin,
       completed: false,
       dueTime: dueTime || undefined,
       date: taskDate || getTodayISO(),
     });
+
+    // Если текущий фильтр скрывал бы созданную задачу, переключаем на категорию задачи
+    if (filter !== 'all' && filter !== targetCategory) {
+      setFilter(targetCategory as any);
+    }
 
     setNewTitle('');
     setDueTime('');
@@ -220,7 +239,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
           className="input-glass"
           placeholder="Что нужно сделать? (напр. Составить отчет по проекту)"
           value={newTitle}
-          onChange={e => setNewTitle(e.target.value)}
+          onChange={e => handleTitleChange(e.target.value)}
           required
         />
 
