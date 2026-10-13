@@ -315,6 +315,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               />
             </div>
 
+            {/* Серверный шлюз (Proxy URL) */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  Серверный шлюз (Cloudflare / Vercel Proxy):
+                </label>
+                {settings.proxyUrl && (
+                  <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
+                    ✓ Активен
+                  </span>
+                )}
+              </div>
+              <input 
+                type="text" 
+                className="input-glass"
+                placeholder="https://...workers.dev (опционально)"
+                value={settings.proxyUrl || ''}
+                onChange={e => setSettings(prev => ({ ...prev, proxyUrl: e.target.value.trim() }))}
+                style={{ fontSize: 13, padding: '8px 12px' }}
+              />
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                🛡 При подключении шлюза токен бота защищён на сервере (клиентам вводить его не нужно)
+              </div>
+            </div>
+
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
@@ -335,7 +360,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={{ fontSize: 13, padding: '8px 12px' }}
               />
               <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
-                🔒 Токен хранится только на вашем устройстве (в памяти браузера) и никуда не передаётся
+                🔒 Локальный запасной вариант: хранится только в памяти браузера
               </div>
             </div>
 

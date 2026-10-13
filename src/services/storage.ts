@@ -49,6 +49,7 @@ const INITIAL_CHAT: ChatMessage[] = [
 
 const DEFAULT_SETTINGS: NotificationSettings = {
   botToken: DEFAULT_BOT_TOKEN,
+  proxyUrl: '',
   chatId: '',
   enableTelegramNotify: true,
   classRemindMinutes: 15,

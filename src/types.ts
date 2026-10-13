@@ -69,6 +69,7 @@ export interface DayAnalysis {
 
 export interface NotificationSettings {
   botToken: string;
+  proxyUrl?: string; // Безопасный серверный шлюз (Cloudflare Worker / Vercel API)
   chatId: string;
   enableTelegramNotify: boolean;
   classRemindMinutes: number; // e.g. 15

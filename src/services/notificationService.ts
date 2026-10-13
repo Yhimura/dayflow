@@ -4,10 +4,39 @@ import { tg } from './telegram';
 export const DEFAULT_BOT_TOKEN = '';
 
 export const notificationService = {
-  // Отправка сообщения через Telegram Bot API
-  async sendMessage(botToken: string, chatId: string, text: string): Promise<{ success: boolean; error?: string }> {
-    if (!botToken || !chatId) {
-      return { success: false, error: 'Не указан Bot Token или Chat ID' };
+  // Отправка сообщения: сначала через безопасный прокси (если настроен), иначе через прямой Bot API (если есть botToken)
+  async sendMessage(botToken: string, chatId: string, text: string, proxyUrl?: string): Promise<{ success: boolean; error?: string }> {
+    if (!chatId) {
+      return { success: false, error: 'Не указан Chat ID' };
+    }
+
+    const effectiveProxy = proxyUrl?.trim() || (import.meta.env.VITE_PROXY_URL as string | undefined)?.trim();
+
+    // 1. Попытка отправки через защищенный серверный шлюз (Cloudflare Worker / Vercel API)
+    if (effectiveProxy) {
+      try {
+        const response = await fetch(effectiveProxy, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, text }),
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          return { success: true };
+        }
+        if (!botToken) {
+          return { success: false, error: data.error || 'Ошибка серверного шлюза' };
+        }
+      } catch (err: any) {
+        if (!botToken) {
+          return { success: false, error: `Серверный шлюз недоступен: ${err.message}` };
+        }
+      }
+    }
+
+    // 2. Запасной прямой путь через Telegram API (если указан Bot Token)
+    if (!botToken) {
+      return { success: false, error: 'Не указан Bot Token и не подключен серверный шлюз' };
     }
 
     try {
@@ -36,26 +65,26 @@ export const notificationService = {
   // Тестовая отправка
   async sendTestMessage(settings: NotificationSettings): Promise<{ success: boolean; error?: string }> {
     const text = `⚡️ <b>Тестовое уведомление DayFlow!</b>\n\nБот успешно подключен к вашему органайзеру. Напоминания о парах настроены за <b>${settings.classRemindMinutes} мин</b>, а о делах — за <b>${settings.taskRemindMinutes} мин</b>.`;
-    return this.sendMessage(settings.botToken, settings.chatId, text);
+    return this.sendMessage(settings.botToken, settings.chatId, text, settings.proxyUrl);
   },
 
   // Форматированное напоминание о паре
   async sendClassReminder(settings: NotificationSettings, item: ScheduleItem): Promise<void> {
     const text = `🔔 <b>Напоминание о паре через ${settings.classRemindMinutes} мин!</b>\n\n📚 <b>${item.title}</b>\n⏰ <b>Время:</b> ${item.startTime} - ${item.endTime}\n📍 <b>Место:</b> ${item.location}${item.teacherOrHost ? `\n👨‍🏫 <b>Преподаватель:</b> ${item.teacherOrHost}` : ''}${item.notes ? `\n💡 <b>Заметки:</b> ${item.notes}` : ''}`;
-    await this.sendMessage(settings.botToken, settings.chatId, text);
+    await this.sendMessage(settings.botToken, settings.chatId, text, settings.proxyUrl);
   },
 
   // Форматированное напоминание о задаче
   async sendTaskReminder(settings: NotificationSettings, task: Task): Promise<void> {
     const text = `📌 <b>Дедлайн задачи через ${settings.taskRemindMinutes} мин!</b>\n\n✅ <b>${task.title}</b>\n⏱ <b>Оценка времени:</b> ~${task.timeEstimateMin} мин\n🎯 <b>Приоритет:</b> ${task.priority === 'high' ? '🔴 Срочно' : task.priority === 'medium' ? '🟡 Важно' : '🟢 Обычный'}`;
-    await this.sendMessage(settings.botToken, settings.chatId, text);
+    await this.sendMessage(settings.botToken, settings.chatId, text, settings.proxyUrl);
   },
 
   // Форматированное напоминание о дне рождения
   async sendBirthdayReminder(settings: NotificationSettings, bday: BirthdayEvent, daysLeft: number): Promise<void> {
     const prefix = daysLeft === 0 ? '🎉 <b>СЕГОДНЯ ДЕНЬ РОЖДЕНИЯ!</b>' : `🎂 <b>День рождения через ${daysLeft} дн!</b>`;
     const text = `${prefix}\n\n👤 <b>${bday.name}</b> (${bday.birthDate})\n${bday.giftIdeas.length > 0 ? `🎁 <b>Идеи подарков:</b> ${bday.giftIdeas.join(', ')}\n` : ''}${bday.notes ? `💬 <b>Заметки:</b> ${bday.notes}` : ''}`;
-    await this.sendMessage(settings.botToken, settings.chatId, text);
+    await this.sendMessage(settings.botToken, settings.chatId, text, settings.proxyUrl);
   },
 
   // Утренний дайджест в бот
@@ -93,7 +122,7 @@ export const notificationService = {
     }
 
     msg += `🚀 <i>Удачного и продуктивного дня!</i>`;
-    return this.sendMessage(settings.botToken, settings.chatId, msg);
+    return this.sendMessage(settings.botToken, settings.chatId, msg, settings.proxyUrl);
   },
 
   // Отправка полной резервной копии данных в чат с ботом
@@ -113,7 +142,7 @@ export const notificationService = {
       `• Дней рождения: <b>${birthdays.length}</b>\n\n` +
       `Ваши данные надежно сохранены. Вы всегда можете восстановить их.`;
 
-    return this.sendMessage(settings.botToken, settings.chatId, text);
+    return this.sendMessage(settings.botToken, settings.chatId, text, settings.proxyUrl);
   }
 };
 
