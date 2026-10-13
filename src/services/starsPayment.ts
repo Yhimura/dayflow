@@ -8,7 +8,9 @@ const STORAGE_KEYS = {
 };
 
 // Список ID разработчиков (супер-админов)
-export const DEFAULT_ADMIN_IDS: string[] = [];
+export const DEFAULT_ADMIN_IDS: string[] = [
+  '6444258914', // Trabla (Владелец)
+];
 
 export interface GrantedVipUser {
   userId: string;
