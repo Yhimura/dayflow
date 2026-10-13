@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Bell, Send, CheckCircle2, AlertCircle, 
   Clock, Shield, Trash2, Smartphone, Key, User, Crown 
@@ -32,6 +32,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
   const [backupStatus, setBackupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  // Автоопределение chatId из Telegram
+  useEffect(() => {
+    const user = tg.getUser();
+    if (user?.id && !settings.chatId) {
+      setSettings(prev => ({ ...prev, chatId: String(user.id) }));
+    }
+  }, []);
 
   // Состояние промокода
   const [promoInput, setPromoInput] = useState('');
@@ -273,16 +281,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Параметры подключения к Telegram */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Smartphone size={16} color="var(--accent-green)" />
-              <span>Параметры Telegram бота</span>
+              <span>Куда приходят напоминания</span>
+            </div>
+
+            <div style={{
+              background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.25)',
+              borderRadius: 12, padding: '10px 12px', fontSize: 11.5, color: '#e2e8f0', lineHeight: 1.45
+            }}>
+              🔔 Все напоминания о делах и парах приходят <b>прямо в ваш Telegram</b> в личные сообщения от официального бота <a href="https://t.me/DayFlowHelper_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--secondary)', fontWeight: 700 }}>@DayFlowHelper_bot</a> точно ко времени.
             </div>
 
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>
-                Твой Chat ID / Telegram ID
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  Ваш Telegram ID / Chat ID:
+                </label>
+                {settings.chatId && (
+                  <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
+                    ✓ Привязан
+                  </span>
+                )}
+              </div>
               <input 
                 type="text" 
                 className="input-glass"
@@ -291,8 +313,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onChange={e => setSettings(prev => ({ ...prev, chatId: e.target.value.trim() }))}
                 style={{ fontSize: 13, padding: '8px 12px' }}
               />
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                💡 Нажмите <b>/start</b> в боте <a href="https://t.me/DayFlowHelper_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--secondary)' }}>@DayFlowHelper_bot</a>, чтобы бот имел право писать вам в личные сообщения.
+            </div>
+
+            {/* Шаг 1: Активация бота */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <a 
+                href="https://t.me/DayFlowHelper_bot" 
+                target="_blank" 
+                rel="noreferrer"
+                className="btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '9px 12px', fontSize: 12 }}
+              >
+                <span>1. Запустить @DayFlowHelper_bot (/start)</span>
+              </a>
+              <div style={{ fontSize: 10.5, color: 'var(--text-dim)', textAlign: 'center' }}>
+                (Нужно нажать /start один раз, чтобы Telegram разрешил боту писать вам)
               </div>
             </div>
 
@@ -302,9 +337,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               disabled={testStatus === 'loading'}
               className="btn-ghost"
               style={{
-                width: '100%', justifyContent: 'center', marginTop: 4,
+                width: '100%', justifyContent: 'center',
                 borderColor: testStatus === 'success' ? 'var(--accent-green)' : 'var(--border-subtle)',
                 color: testStatus === 'success' ? 'var(--accent-green)' : 'var(--text-main)',
+                fontSize: 12, padding: '9px 12px'
               }}
             >
               {testStatus === 'loading' ? (
@@ -312,12 +348,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               ) : testStatus === 'success' ? (
                 <>
                   <CheckCircle2 size={16} color="var(--accent-green)" />
-                  <span>Уведомление доставлено в Telegram! 🎉</span>
+                  <span>Доставлено! Проверьте чат с ботом 🎉</span>
                 </>
               ) : (
                 <>
                   <Send size={15} />
-                  <span>Отправить тестовое напоминание в бот</span>
+                  <span>2. Отправить тест в бот и проверить</span>
                 </>
               )}
             </button>

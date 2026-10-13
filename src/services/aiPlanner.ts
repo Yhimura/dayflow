@@ -1,4 +1,4 @@
-import { Task, ScheduleItem, BirthdayEvent, DayAnalysis, DayPlanSlot } from '../types';
+import { Task, ScheduleItem, BirthdayEvent, DayAnalysis, DayPlanSlot, TaskCategory } from '../types';
 
 export const aiPlanner = {
   // Анализ загруженности текущего дня
@@ -231,15 +231,55 @@ export const aiPlanner = {
     }
 
     // 4. Добавление задачи / напоминалки
-    if (lower.includes('напомни') || lower.includes('задач') || lower.includes('сделать') || lower.includes('купить')) {
-      const cleanTitle = text.replace(/напомни|добавь|задачу|сделать|нужно/gi, '').trim();
+    if (lower.includes('напомни') || lower.includes('задач') || lower.includes('сделать') || lower.includes('купить') || lower.includes('работ') || lower.includes('дело')) {
+      // Определение категории
+      let category: TaskCategory = 'personal';
+      if (lower.includes('работ') || lower.includes('отчет') || lower.includes('проект') || lower.includes('клиент') || lower.includes('босс') || lower.includes('смен')) {
+        category = 'work';
+      } else if (lower.includes('дз') || lower.includes('домашк') || lower.includes('курсач') || lower.includes('лаб') || lower.includes('учеб') || lower.includes('сесси')) {
+        category = 'study';
+      } else if (lower.includes('срочн') || lower.includes('горят') || lower.includes('дедлайн')) {
+        category = 'urgent';
+      }
+
+      // Время дедлайна
+      let dueTime: string | undefined = undefined;
+      const timeMatch = text.match(/(?:в|к|до)\s+(\d{1,2}[:.]\d{2})/i) || text.match(/(\d{1,2}[:.]\d{2})/);
+      if (timeMatch) {
+        dueTime = timeMatch[1].replace('.', ':');
+        if (dueTime.length === 4) dueTime = '0' + dueTime;
+      }
+
+      // Дата
+      const now = new Date();
+      let targetDate = new Date();
+      if (lower.includes('послезавтра')) {
+        targetDate.setDate(now.getDate() + 2);
+      } else if (lower.includes('завтра')) {
+        targetDate.setDate(now.getDate() + 1);
+      }
+      const y = targetDate.getFullYear();
+      const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const d = String(targetDate.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${d}`;
+
+      const cleanTitle = text
+        .replace(/напомни\s*(?:мне)?|добавь|задачу|сделать|нужно|в\s+\d{1,2}[:.]\d{2}|сегодня|завтра|послезавтра/gi, '')
+        .trim();
+
+      const catLabel = category === 'work' ? 'Работа' : category === 'study' ? 'Учеба' : category === 'urgent' ? 'Срочно' : 'Личное';
+      const timeLabel = dueTime ? `, дедлайн: ${dueTime}` : '';
+
       return {
-        reply: ` Записал в список задач: «${cleanTitle || text}»!\nПриоритет выставлен на Высокий, тайминг учтён в твоем дне.`,
+        reply: ` Записал задачу в раздел «${catLabel}»: «${cleanTitle || text}»${timeLabel}!\nНапоминание поступит в Telegram через @DayFlowHelper_bot.`,
         action: 'add_task',
         data: {
           title: cleanTitle || text,
-          priority: 'high',
+          category,
+          priority: category === 'urgent' ? 'high' : 'medium',
           timeEstimateMin: 30,
+          dueTime,
+          date: dateStr,
         },
         suggestions: ['⚡️ Распиши мой день', 'Какие задачи остались?'],
       };

@@ -71,8 +71,18 @@ export const App: React.FC = () => {
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       const todayDateStr = now.toDateString();
 
-      // 1. Проверка пар (с допуском окна в 1 минуту для надежности таймера)
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const todayISO = `${y}-${m}-${d}`;
+
+      let todayDay = now.getDay();
+      if (todayDay === 0) todayDay = 7; // 1 = Пн, 7 = Вс
+
+      // 1. Проверка пар (только на сегодня с допуском окна в 1 минуту)
       schedule.forEach(item => {
+        if (item.dayOfWeek && item.dayOfWeek !== todayDay) return;
+
         const [startH, startM] = item.startTime.split(':').map(Number);
         const itemStartMin = startH * 60 + startM;
         const diff = itemStartMin - currentMinutes;
@@ -86,9 +96,12 @@ export const App: React.FC = () => {
         }
       });
 
-      // 2. Проверка дедлайнов задач
+      // 2. Проверка дедлайнов задач (строго на дату задачи)
       tasks.forEach(task => {
         if (task.completed || !task.dueTime) return;
+        const taskDate = task.date || todayISO;
+        if (taskDate !== todayISO) return; // Не напоминаем, если задача запланирована на другой день!
+
         const [dueH, dueM] = task.dueTime.split(':').map(Number);
         const taskDueMin = dueH * 60 + dueM;
         const diff = taskDueMin - currentMinutes;
@@ -314,11 +327,12 @@ export const App: React.FC = () => {
     } else if (parsed.action === 'add_task' && parsed.data) {
       handleAddTask({
         title: parsed.data.title,
-        category: 'study',
-        priority: 'high',
-        timeEstimateMin: 30,
+        category: parsed.data.category || 'personal',
+        priority: parsed.data.priority || 'medium',
+        timeEstimateMin: parsed.data.timeEstimateMin || 30,
+        dueTime: parsed.data.dueTime || undefined,
         completed: false,
-        date: new Date().toISOString().split('T')[0],
+        date: parsed.data.date || new Date().toISOString().split('T')[0],
       });
     } else if (parsed.action === 'show_schedule') {
       setActiveTab('schedule');
