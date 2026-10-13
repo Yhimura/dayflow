@@ -8,9 +8,7 @@ const STORAGE_KEYS = {
 };
 
 // Список ID разработчиков (супер-админов)
-export const DEFAULT_ADMIN_IDS: string[] = [
-  '8875277564', // ID создателя бота
-];
+export const DEFAULT_ADMIN_IDS: string[] = [];
 
 export interface GrantedVipUser {
   userId: string;

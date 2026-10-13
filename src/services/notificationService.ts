@@ -1,7 +1,7 @@
 import { NotificationSettings, ScheduleItem, Task, BirthdayEvent } from '../types';
 import { tg } from './telegram';
 
-export const DEFAULT_BOT_TOKEN = '8875277564:AAE5qqGExGOGFJXXam1BlyYJY6nwf_Vmi08';
+export const DEFAULT_BOT_TOKEN = '';
 
 export const notificationService = {
   // Отправка сообщения через Telegram Bot API

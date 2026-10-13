@@ -315,6 +315,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               />
             </div>
 
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  Токен бота (Bot Token из @BotFather):
+                </label>
+                {settings.botToken && (
+                  <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
+                    ✓ Указан
+                  </span>
+                )}
+              </div>
+              <input 
+                type="password" 
+                className="input-glass"
+                placeholder="Вставьте токен из @BotFather"
+                value={settings.botToken || ''}
+                onChange={e => setSettings(prev => ({ ...prev, botToken: e.target.value.trim() }))}
+                style={{ fontSize: 13, padding: '8px 12px' }}
+              />
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                🔒 Токен хранится только на вашем устройстве (в памяти браузера) и никуда не передаётся
+              </div>
+            </div>
+
             {/* Шаг 1: Активация бота */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <a 
