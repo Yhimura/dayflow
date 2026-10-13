@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { NotificationSettings } from '../types';
 import { notificationService } from '../services/notificationService';
-import { starsPayment } from '../services/starsPayment';
+import { starsPayment, DEFAULT_ADMIN_IDS } from '../services/starsPayment';
 import { tg } from '../services/telegram';
 import confetti from 'canvas-confetti';
 
@@ -49,6 +49,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isAdminSession, setIsAdminSession] = useState<boolean>(() => {
     return localStorage.getItem('dayflow_admin_auth_session') === 'true';
   });
+  const isSuperAdminUser = DEFAULT_ADMIN_IDS.includes(String(tg.getUser()?.id || '')) || isAdminSession;
 
   // Секретный триггер входа для создателя (5 тапов по версии)
   const [versionTaps, setVersionTaps] = useState(0);
@@ -315,54 +316,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               />
             </div>
 
-            {/* Серверный шлюз (Proxy URL) */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  Серверный шлюз (Cloudflare / Vercel Proxy):
-                </label>
-                {settings.proxyUrl && (
-                  <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
-                    ✓ Активен
-                  </span>
-                )}
-              </div>
-              <input 
-                type="text" 
-                className="input-glass"
-                placeholder="https://...workers.dev (опционально)"
-                value={settings.proxyUrl || ''}
-                onChange={e => setSettings(prev => ({ ...prev, proxyUrl: e.target.value.trim() }))}
-                style={{ fontSize: 13, padding: '8px 12px' }}
-              />
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
-                🛡 При подключении шлюза токен бота защищён на сервере (клиентам вводить его не нужно)
-              </div>
-            </div>
+            {/* Для разработчика: Серверный шлюз и токен бота (скрыто от обычных пользователей) */}
+            {isSuperAdminUser && (
+              <div style={{
+                background: 'rgba(234, 179, 8, 0.05)',
+                border: '1px dashed rgba(234, 179, 8, 0.3)',
+                borderRadius: 12,
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#facc15', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Shield size={14} />
+                  <span>Параметры разработчика бота</span>
+                </div>
 
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  Токен бота (Bot Token из @BotFather):
-                </label>
-                {settings.botToken && (
-                  <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
-                    ✓ Указан
-                  </span>
-                )}
+                {/* Серверный шлюз (Proxy URL) */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                      Серверный шлюз (Cloudflare / Vercel Proxy):
+                    </label>
+                    {settings.proxyUrl && (
+                      <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
+                        ✓ Активен
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="text" 
+                    className="input-glass"
+                    placeholder="https://...workers.dev (опционально)"
+                    value={settings.proxyUrl || ''}
+                    onChange={e => setSettings(prev => ({ ...prev, proxyUrl: e.target.value.trim() }))}
+                    style={{ fontSize: 13, padding: '8px 12px' }}
+                  />
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                    🛡 При подключении шлюза токен бота защищён на сервере
+                  </div>
+                </div>
+
+                {/* Токен бота */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                      Токен бота (Bot Token из @BotFather):
+                    </label>
+                    {settings.botToken && (
+                      <span style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 600 }}>
+                        ✓ Указан
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="password" 
+                    className="input-glass"
+                    placeholder="Вставьте токен из @BotFather"
+                    value={settings.botToken || ''}
+                    onChange={e => setSettings(prev => ({ ...prev, botToken: e.target.value.trim() }))}
+                    style={{ fontSize: 13, padding: '8px 12px' }}
+                  />
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                    🔒 Локальный режим: хранится только в памяти браузера
+                  </div>
+                </div>
               </div>
-              <input 
-                type="password" 
-                className="input-glass"
-                placeholder="Вставьте токен из @BotFather"
-                value={settings.botToken || ''}
-                onChange={e => setSettings(prev => ({ ...prev, botToken: e.target.value.trim() }))}
-                style={{ fontSize: 13, padding: '8px 12px' }}
-              />
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
-                🔒 Локальный запасной вариант: хранится только в памяти браузера
-              </div>
-            </div>
+            )}
 
             {/* Шаг 1: Активация бота */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
